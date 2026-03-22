@@ -6,7 +6,8 @@ namespace Parser;
 /// in JSON representation. JsonObject represents
 /// any construct withing JSON format.
 /// </summary>
-public abstract class JsonObject {
+public abstract class JsonObject
+{
     public abstract string Print();
 
     // trying to make sure all children

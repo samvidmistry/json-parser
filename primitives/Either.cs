@@ -7,48 +7,48 @@ public class Either<T>
 
     public Either(T obj)
     {
-	if (obj is null)
-	{
-	    throw new ArgumentNullException("Object cannot be null for this constructor!");
-	}
-	
-	this.obj = obj;
-	this.err = null;
+        if (obj is null)
+        {
+            throw new ArgumentNullException("Object cannot be null for this constructor!");
+        }
+
+        this.obj = obj;
+        this.err = null;
     }
 
     public Either(Error err)
     {
-	this.err = err;
-	this.obj = default(T);
+        this.err = err;
+        this.obj = default(T);
     }
 
     public T GetObject()
     {
-	if (this.err is not null)
-	{
-	    throw new InvalidOperationException("Either contains an Error!");
-	}
+        if (this.err is not null)
+        {
+            throw new InvalidOperationException("Either contains an Error!");
+        }
 
-	return this.obj!;
+        return this.obj!;
     }
 
     public Either<J> GetAs<J>()
     {
-	if (this.err is not null)
-	{
-	    return new Either<J>(new Error(this.err.ErrorMessage));
-	}
+        if (this.err is not null)
+        {
+            return new Either<J>(new Error(this.err.ErrorMessage));
+        }
 
-	if (this.obj is J j)
-	{
-	    return new Either<J>(j);
-	}
+        if (this.obj is J j)
+        {
+            return new Either<J>(j);
+        }
 
-	return new Either<J>(new Error($"Cannot convert {typeof(T).Name} to {typeof(J).Name}"));
+        return new Either<J>(new Error($"Cannot convert {typeof(T).Name} to {typeof(J).Name}"));
     }
 
     public Error? GetError()
     {
-	return this.err;
+        return this.err;
     }
 }

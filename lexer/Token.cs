@@ -43,8 +43,8 @@ public class Token
 
     public Token(TokenType type, int start, int end)
     {
-	this.Type = type;
-	this.Start = start;
-	this.End = end;
+        this.Type = type;
+        this.Start = start;
+        this.End = end;
     }
 }

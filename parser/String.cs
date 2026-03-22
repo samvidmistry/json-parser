@@ -6,7 +6,7 @@ public class String : JsonObject
 
     public String(string value)
     {
-	this.Value = value;
+        this.Value = value;
     }
 
     public override string Print()

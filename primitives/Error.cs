@@ -6,6 +6,6 @@ public class Error
 
     public Error(string err)
     {
-	this.ErrorMessage = err;
+        this.ErrorMessage = err;
     }
 }
