@@ -7,5 +7,6 @@ if (jsonObject.GetError() is not null)
 }
 else
 {
+    Console.WriteLine(jsonObject.GetObject());
     return 0;
 }
