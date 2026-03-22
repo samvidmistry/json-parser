@@ -32,6 +32,21 @@ public class Either<T>
 	return this.obj!;
     }
 
+    public Either<J> GetAs<J>()
+    {
+	if (this.err is not null)
+	{
+	    return new Either<J>(new Error(this.err.ErrorMessage));
+	}
+
+	if (this.obj is J j)
+	{
+	    return new Either<J>(j);
+	}
+
+	return new Either<J>(new Error($"Cannot convert {typeof(T).Name} to {typeof(J).Name}"));
+    }
+
     public Error? GetError()
     {
 	return this.err;
