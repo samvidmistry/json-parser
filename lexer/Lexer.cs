@@ -14,7 +14,7 @@ class Lexer
     // Stream is a low-level representation of byte data, StreamReader
     // is a higher level representation for working with text.
     private readonly StreamReader reader;
-    private long index;
+    private int index;
     
     // If the stream is not rewindable, we gotta store
     // the token that we peeked at to return
@@ -39,6 +39,22 @@ class Lexer
 	return this.peekedToken;
     }
 
+    private bool IsWhiteSpace(char c)
+    {
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+    }
+
+    private int ReadIgnoringWhiteSpace()
+    {
+	while (true)
+	{
+	    var c = this.reader.Read();
+	    if (c == -1) return -1;
+	    index++;
+	    if (!IsWhiteSpace((char)c)) return c;
+	}
+    }
+
     /// <summary>
     /// Read the next token, advancing the stream.
     /// </summary>
@@ -51,30 +67,75 @@ class Lexer
 	    return temp;
 	}
 
-	if (this.reader.Peek() == -1)
+	var n = this.ReadIgnoringWhiteSpace();
+
+	if (n == -1)
 	{
 	    return new Token(TokenType.EOF, index, index);
 	}
 
-	// TODO: Supporting only ASCII for now
-	// TODO: Step 1, only 2 characters necessary
-	var c = (char)this.reader.Read();
+	var c = (char)n;
 	Token? returnToken;
 
-	// TODO: Support all characters
 	if (c == '{')
 	{
-	    returnToken = new Token(TokenType.BeginObject, index, index + 1);
-	    index++;
+	    returnToken = new Token(TokenType.BeginObject, index - 1, index);
 	}
 	else if (c == '}')
 	{
-	    returnToken = new Token(TokenType.EndObject, index, index + 1);
-	    index++;
+	    returnToken = new Token(TokenType.EndObject, index - 1, index);
+	}
+	else if (c == '[')
+	{
+	    returnToken = new Token(TokenType.BeginArray, index - 1, index);
+	}
+	else if (c == ']')
+	{
+	    returnToken = new Token(TokenType.EndArray, index - 1, index);
+	}
+	else if (c == ':')
+	{
+	    returnToken = new Token(TokenType.NameSeparator, index - 1, index);
+	}
+	else if (c == ',')
+	{
+	    returnToken = new Token(TokenType.ValueSeparator, index - 1, index);
+	}
+	else if (c == '"')
+	{
+	    bool escaped = false;
+	    var startIndex = index - 1;
+	    
+	    while (true)
+	    {
+		var next = (char)this.reader.Read();
+		index++;
+
+		if (escaped) { // string cannot end here
+		    escaped = false;
+		    continue;
+		}
+
+		if (next == '\\')
+		{
+		    escaped = true;
+		    continue;
+		}
+
+		if (next == '"')
+		{
+		    break;
+		}
+	    }
+
+	    returnToken = new Token(TokenType.String, startIndex, index);
 	}
 	else
 	{
-	    throw new InvalidOperationException("unsupported case (for now?)");
+	    // Ideally the system should never throw exceptions and use
+	    // Either to return errors, but I'm lazy to incorporate it in
+	    // lexer now. :)
+	    throw new InvalidOperationException($"Invalid character {c} found at {index - 1}");
 	}
 
 	return returnToken;
@@ -82,6 +143,7 @@ class Lexer
 
     /// <summary>
     /// Read (lazily) to the end of token stream.
+    /// Returns <see cref="TokenType.EOF" /> on EOF.
     /// </summary>
     public IEnumerable<Token> ReadToEnd()
     {

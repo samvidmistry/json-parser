@@ -33,15 +33,15 @@ public class Token
     /// <summary>
     /// Starting byte of this token in the file stream.
     /// </summary>
-    public readonly long Start;
+    public readonly int Start;
 
     /// <summary>
     /// Ending byte (exclusive) of this token in the file
     /// stream.
     /// </summary>
-    public readonly long End;
+    public readonly int End;
 
-    public Token(TokenType type, long start, long end)
+    public Token(TokenType type, int start, int end)
     {
 	this.Type = type;
 	this.Start = start;
