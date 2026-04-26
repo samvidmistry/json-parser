@@ -1,8 +1,8 @@
 namespace Parser;
 
-public class Number(decimal value) : JsonObject
+public class Number(double value) : JsonObject
 {
-    private readonly decimal Value = value;
+    private readonly double Value = value;
 
     public override string Print()
     {

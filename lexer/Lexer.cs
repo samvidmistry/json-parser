@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace Lexer;
@@ -41,6 +42,11 @@ internal class Lexer(StreamReader reader)
     private static bool IsWhiteSpace(char c)
     {
         return c is ' ' or '\t' or '\r' or '\n';
+    }
+
+    private static bool IsValidNumberCharacter(char c)
+    {
+        return c is (>= '0' and <= '9') or '-' or '+' or '.' or 'e' or 'E';
     }
 
     private int ReadIgnoringWhiteSpace()
@@ -172,7 +178,7 @@ internal class Lexer(StreamReader reader)
             for (int i = 0; i < 28; i++)
             {
                 var cc = this.reader.Peek();
-                if (IsWhiteSpace((char)cc))
+                if (!IsValidNumberCharacter((char)cc))
                 {
                     break;
                 }
@@ -183,9 +189,9 @@ internal class Lexer(StreamReader reader)
             }
 
             var num = sb.ToString();
-            return decimal.TryParse(num, out _)
+            return double.TryParse(num, CultureInfo.InvariantCulture, out _)
                 ? new Token(TokenType.Number, start, index)
-                : throw new InvalidOperationException($"Number cannot be parser: {num}");
+                : throw new InvalidOperationException($"Number cannot be parsed: {num}");
         }
         else if (c == 't')
         {

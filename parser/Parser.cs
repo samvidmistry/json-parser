@@ -46,7 +46,7 @@ public class Parser
             return new Either<JsonObject>(this.checkDepth()!);
         }
 
-        Either<JsonObject> result;
+        Either<JsonObject> result = null;
         // NOTE: I will only return the first full object I find in a file
         while (true)
         {
@@ -62,7 +62,20 @@ public class Parser
                 result = this.ParseObject().GetAs<JsonObject>();
                 break;
             }
-            else if (t.Type == TokenType.String)
+            else if (t.Type == TokenType.BeginArray)
+            {
+                result = this.ParseArray().GetAs<JsonObject>();
+                break;
+            }
+
+            // at top level, we can only have
+            // an array or an object
+            if (this.currentDepth == 1)
+            {
+                return new Either<JsonObject>(new Error("A JSON payload should be an object or array."));
+            }
+
+            if (t.Type == TokenType.String)
             {
                 result = this.ParseString().GetAs<JsonObject>();
                 break;
@@ -80,11 +93,6 @@ public class Parser
             else if (t.Type == TokenType.Null)
             {
                 result = this.ParseNull().GetAs<JsonObject>();
-                break;
-            }
-            else if (t.Type == TokenType.BeginArray)
-            {
-                result = this.ParseArray().GetAs<JsonObject>();
                 break;
             }
             else
@@ -173,7 +181,7 @@ public class Parser
     }
 
     /// <summary>
-    /// Parse a boolean coing in token stream.
+    /// Parse a boolean coming in token stream.
     /// </summary>
     private Either<Boolean> ParseBoolean()
     {
@@ -197,7 +205,14 @@ public class Parser
             return new Either<Number>(this.CreateUnexpectedTokenError(t, TokenType.Number));
         }
 
-        return new Either<Number>(new Number(decimal.Parse(this.file.Substring(t.Start, t.End - t.Start))));
+        var numStr = this.file[t.Start..t.End];
+        // TODO: This is a very ugly hack
+        if (numStr.StartsWith("0") && !numStr.StartsWith("0.") && numStr.Length > 1)
+        {
+            return new Either<Number>(new Error("Number must not start with 0"));
+        }
+
+        return new Either<Number>(new Number(double.Parse(this.file.Substring(t.Start, t.End - t.Start))));
     }
 
     /// <summary>
