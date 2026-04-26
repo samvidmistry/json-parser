@@ -11,12 +11,26 @@ public class Parser
 {
     private readonly Lexer.Lexer lexer;
     private readonly string file;
+    private readonly int maxDepth;
+    private int currentDepth;
 
     // TODO: Design a better input
-    public Parser(string fileName)
+    public Parser(string fileName, int maxDepth = 8)
     {
         this.file = File.ReadAllText(fileName);
         this.lexer = new Lexer.Lexer(new StreamReader(new MemoryStream(File.ReadAllBytes(fileName))));
+        this.maxDepth = maxDepth;
+        this.currentDepth = 0;
+    }
+
+    private Error? checkDepth()
+    {
+        if (this.currentDepth > this.maxDepth)
+        {
+            return new Error("Nesting exceeds max allowed depth.");
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -26,51 +40,82 @@ public class Parser
     /// </summary>
     public Either<JsonObject> Parse()
     {
-        // TODO: I will currently return the first full object I find in a file
+        this.currentDepth++;
+        if (this.checkDepth() is not null)
+        {
+            return new Either<JsonObject>(this.checkDepth()!);
+        }
+
+        Either<JsonObject> result;
+        // NOTE: I will only return the first full object I find in a file
         while (true)
         {
             var t = this.lexer.Peek();
             if (t.Type == TokenType.EOF)
             {
-                return new Either<JsonObject>(new Error($"Encountered unexpected EOF at {t.Start}."));
+                result = new Either<JsonObject>(new Error($"Encountered unexpected EOF at {t.Start}."));
+                break;
             }
 
             if (t.Type == TokenType.BeginObject)
             {
-                return this.ParseObject().GetAs<JsonObject>();
+                result = this.ParseObject().GetAs<JsonObject>();
+                break;
             }
             else if (t.Type == TokenType.String)
             {
-                return this.ParseString().GetAs<JsonObject>();
+                result = this.ParseString().GetAs<JsonObject>();
+                break;
             }
             else if (t.Type == TokenType.Number)
             {
-                return this.ParseNumber().GetAs<JsonObject>();
+                result = this.ParseNumber().GetAs<JsonObject>();
+                break;
             }
             else if (t.Type == TokenType.Boolean)
             {
-                return this.ParseBoolean().GetAs<JsonObject>();
+                result = this.ParseBoolean().GetAs<JsonObject>();
+                break;
             }
             else if (t.Type == TokenType.Null)
             {
-                return this.ParseNull().GetAs<JsonObject>();
+                result = this.ParseNull().GetAs<JsonObject>();
+                break;
             }
             else if (t.Type == TokenType.BeginArray)
             {
-                return this.ParseArray().GetAs<JsonObject>();
+                result = this.ParseArray().GetAs<JsonObject>();
+                break;
             }
             else
             {
-                return new Either<JsonObject>(new Error("Unsupported token type."));
+                result = new Either<JsonObject>(new Error("Unsupported token type."));
+                break;
             }
         }
+        this.currentDepth--;
+        if (currentDepth == 0 && result.GetError() is null)
+        {
+            if (this.lexer.Peek().Type != TokenType.EOF)
+            {
+                return new Either<JsonObject>(new Error($"Found extranous token {this.lexer.Peek().Type}"));
+            }
+        }
+        return result;
     }
 
     private Either<Array> ParseArray()
     {
+        this.currentDepth++;
+        if (this.checkDepth() is not null)
+        {
+            return new Either<Array>(this.checkDepth()!);
+        }
+
         var t = this.lexer.Read();
         if (t.Type != TokenType.BeginArray)
         {
+            this.currentDepth--;
             return new Either<Array>(this.CreateUnexpectedTokenError(t, TokenType.BeginArray));
         }
 
@@ -81,23 +126,32 @@ public class Parser
             if (t.Type == TokenType.EndArray)
             {
                 _ = this.lexer.Read();
+                this.currentDepth--;
                 return new Either<Array>(new Array(members));
             }
 
             if (members.Count == 0 && t.Type == TokenType.ValueSeparator)
             {
+                this.currentDepth--;
                 return new Either<Array>(new Error("Encountered value-separator before array elements"));
             }
 
-            if (t.Type == TokenType.ValueSeparator)
+            if (members.Count > 0)
             {
-                _ = this.lexer.Read();
-                continue;
+                if (t.Type == TokenType.ValueSeparator)
+                {
+                    _ = this.lexer.Read();
+                }
+                else
+                {
+                    return new Either<Array>(new Error($"Expected value-separator, found {t.Type}"));
+                }
             }
 
             var element = this.Parse();
             if (element.GetError() is not null)
             {
+                this.currentDepth--;
                 return new Either<Array>(element.GetError());
             }
 
@@ -151,9 +205,16 @@ public class Parser
     /// </summary>
     public Either<Object> ParseObject()
     {
+        this.currentDepth++;
+        if (this.checkDepth() is not null)
+        {
+            return new Either<Object>(this.checkDepth()!);
+        }
+        
         var t = this.lexer.Read();
         if (t.Type != TokenType.BeginObject)
         {
+            this.currentDepth--;
             return new Either<Object>(this.CreateUnexpectedTokenError(t, TokenType.BeginObject));
         }
 
@@ -164,6 +225,7 @@ public class Parser
             if (t.Type == TokenType.EndObject)
             {
                 this.lexer.Read(); // consume the token
+                this.currentDepth--;
                 return new Either<Object>(new Object(members));
             }
             else if (t.Type == TokenType.String || t.Type == TokenType.ValueSeparator)
@@ -172,6 +234,7 @@ public class Parser
                 {
                     if (members.Count == 0)
                     {
+                        this.currentDepth--;
                         return new Either<Object>(new Error("Leading comma found before object members."));
                     }
 
@@ -182,18 +245,21 @@ public class Parser
                 var keyString = this.ParseString();
                 if (keyString.GetError() is not null)
                 {
+                    this.currentDepth--;
                     return new Either<Object>(keyString.GetError());
                 }
                 var key = keyString.GetObject().Value;
                 t = this.lexer.Read();
                 if (t.Type != TokenType.NameSeparator)
                 {
+                    this.currentDepth--;
                     return new Either<Object>(this.CreateUnexpectedTokenError(t, TokenType.NameSeparator));
                 }
 
                 var jsonObject = this.Parse();
                 if (jsonObject.GetError() is not null)
                 {
+                    this.currentDepth--;
                     return new Either<Object>(jsonObject.GetError()!);
                 }
 
@@ -201,6 +267,7 @@ public class Parser
             }
             else
             {
+                this.currentDepth--;
                 return new Either<Object>(this.CreateUnexpectedTokenError(t, TokenType.EndObject, TokenType.String));
             }
 

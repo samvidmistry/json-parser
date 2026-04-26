@@ -18,6 +18,9 @@ internal class Lexer(StreamReader reader)
     private readonly StreamReader reader = reader;
     private int index;
 
+    private static char[] escapeChars =
+        ['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u'];
+
     // If the stream is not rewindable, we gotta store
     // the token that we peeked at to return
     private Token? peekedToken;
@@ -109,6 +112,31 @@ internal class Lexer(StreamReader reader)
 
                 if (escaped)
                 {
+                    // We must make sure only one of the
+                    // escaped characters show up
+                    if (!escapeChars.Contains(next))
+                    {
+                        throw new InvalidDataException($"Invalid escape character {next} in string literal.");
+                    }
+
+                    if (next == 'u')
+                    {
+                        // unicode codepoint literal
+                        for (int i = 0; i < 4; i++)
+                        {
+                            next = (char)this.reader.Read();
+                            index++;
+
+                            // check if it is in hex range
+                            if (next is not (>= '0' and <= '9' or
+                                  >= 'a' and <= 'f' or
+                                  >= 'A' and <= 'F'))
+                            {
+                                throw new InvalidDataException($"Invalid unicode literal character {next} in string literal.");
+                            }
+                        }
+                    }
+
                     // string cannot end here
                     escaped = false;
                     continue;
@@ -123,6 +151,12 @@ internal class Lexer(StreamReader reader)
                 if (next == '"')
                 {
                     break;
+                }
+
+                // check if it is a control character
+                if (next < 0x20)
+                {
+                    throw new InvalidDataException($"Invalid control character {next} in string literal.");
                 }
             }
 
